@@ -4,6 +4,8 @@ import (
 	"context"
 	"file-sharing/config"
 	"file-sharing/ent"
+	"file-sharing/ent/file"
+	"file-sharing/internal/lib/crypto"
 	"file-sharing/internal/lib/filelib"
 	"file-sharing/internal/lib/reply"
 	"fmt"
@@ -17,7 +19,7 @@ type File struct {
 }
 
 type AttachedGinFile struct {
-	*File
+	dc  *ent.Client
 	c   *gin.Context
 	ctx context.Context
 }
@@ -29,10 +31,18 @@ func NewFile(client *ent.Client) *File {
 }
 
 func (s *File) AttachGin(c *gin.Context) *AttachedGinFile {
-	return &AttachedGinFile{s, c, c.Request.Context()}
+	return &AttachedGinFile{s.dc, c, c.Request.Context()}
 }
 
 // SERVICES
+
+func (s *AttachedGinFile) GetMany(offset int) ([]*ent.File, error) {
+	return s.dc.File.Query().Where().Offset(offset).Limit(config.PAGINATION_LIMIT).All(s.ctx)
+}
+
+func (s *AttachedGinFile) GetOne(token string) (*ent.File, error) {
+	return s.dc.File.Query().Where(file.Token(token)).First(s.ctx)
+}
 
 func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 	rp := reply.New(s.c)
@@ -76,7 +86,7 @@ func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 
 	// Set optional password if provided
 	if p != "" {
-		q.SetPassword(filelib.HashPassword(p))
+		q.SetPassword(crypto.HashPassword(p))
 	}
 
 	// Set max downloads limit if valid number provided

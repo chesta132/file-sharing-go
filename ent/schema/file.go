@@ -1,11 +1,12 @@
 package schema
 
 import (
-	"file-sharing/internal/lib/filelib"
+	"file-sharing/internal/lib/crypto"
 	"time"
 
 	"entgo.io/ent"
 	"entgo.io/ent/schema/field"
+	"entgo.io/ent/schema/index"
 	"github.com/google/uuid"
 )
 
@@ -19,13 +20,13 @@ func (File) Fields() []ent.Field {
 		field.String("file_name"),
 		field.String("mime"),
 
-		field.String("password").Optional().Nillable(),
+		field.String("password").Optional().Nillable().Sensitive(),
 		field.Int("max_downloads").Optional().Nillable(),
 
 		field.String("id").DefaultFunc(func() string {
 			return uuid.New().String()
 		}).Unique(),
-		field.String("token").DefaultFunc(filelib.CreateToken),
+		field.String("token").DefaultFunc(crypto.CreateToken),
 		field.Time("expires_at").Default(func() time.Time {
 			return time.Now().AddDate(0, 0, 7)
 		}),
@@ -35,6 +36,8 @@ func (File) Fields() []ent.Field {
 	}
 }
 
-func (File) Edges() []ent.Edge {
-	return nil
+func (File) Indexes() []ent.Index {
+	return []ent.Index{
+		index.Fields("token"),
+	}
 }

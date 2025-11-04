@@ -24,7 +24,7 @@ type File struct {
 	// Mime holds the value of the "mime" field.
 	Mime string `json:"mime,omitempty"`
 	// Password holds the value of the "password" field.
-	Password *string `json:"password,omitempty"`
+	Password *string `json:"-"`
 	// MaxDownloads holds the value of the "max_downloads" field.
 	MaxDownloads *int `json:"max_downloads,omitempty"`
 	// Token holds the value of the "token" field.
@@ -179,10 +179,7 @@ func (_m *File) String() string {
 	builder.WriteString("mime=")
 	builder.WriteString(_m.Mime)
 	builder.WriteString(", ")
-	if v := _m.Password; v != nil {
-		builder.WriteString("password=")
-		builder.WriteString(*v)
-	}
+	builder.WriteString("password=<sensitive>")
 	builder.WriteString(", ")
 	if v := _m.MaxDownloads; v != nil {
 		builder.WriteString("max_downloads=")

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"file-sharing/ent"
 	"file-sharing/internal/lib/reply"
 	"file-sharing/internal/services"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -26,4 +28,35 @@ func (h *File) CreateOne(c *gin.Context) {
 	}
 
 	rp.Success(file).SetInfo("File successfully uploaded").Created()
+}
+
+func (h *File) GetMany(c *gin.Context) {
+	rp := reply.New(c)
+	s := h.s.AttachGin(c)
+	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+
+	f, err := s.GetMany(offset)
+	if err != nil {
+		rp.Error(reply.CodeBadGateWay, err.Error()).Fail()
+		return
+	}
+	rp.Success(f).Ok()
+}
+
+func (h *File) GetOne(c *gin.Context) {
+	rp := reply.New(c)
+	s := h.s.AttachGin(c)
+	token := c.Param("token")
+
+	file, err := s.GetOne(token)
+	if ent.IsNotFound(err) {
+		rp.Error(reply.CodeNotFound, "File not found. This could be happen because file sharing was expired").Fail()
+		return
+	}
+	if err != nil {
+		rp.Error(reply.CodeBadGateWay, err.Error()).Fail()
+		return
+	}
+
+	rp.Success(file).Ok()
 }

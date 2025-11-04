@@ -35,6 +35,7 @@ type ReplyError struct {
 type Reply struct {
 	c       *gin.Context
 	Payload ReplyEnvelope // Payload to reply
+	ready   bool
 }
 
 //
@@ -48,6 +49,15 @@ type Reply struct {
 //	rp := reply.New(c)
 func New(c *gin.Context) *Reply {
 	return &Reply{c: c}
+}
+
+// Make sure is `r` is ready to reply
+//
+//	if rp.IsReady() {
+//		rp.Ok()
+//	}
+func (r *Reply) IsReady() bool {
+	return r.ready
 }
 
 //
@@ -67,6 +77,10 @@ func (r *Reply) SetStatus(status string) *Reply {
 // SetData assigns data to the "data" field.
 func (r *Reply) SetData(data any) *Reply {
 	r.Payload.Data = data
+	r.ready = true
+	if r.Payload.Meta.Status != "SUCCESS" && r.Payload.Meta.Status != "ERROR" {
+		r.SetStatus("ERROR")
+	}
 	return r
 }
 
@@ -107,12 +121,18 @@ func (r *Reply) Error(code, message string, details ...string) *Reply {
 
 // Reply writes the full JSON reply to the client.
 func (r *Reply) Reply(code int) {
-	r.c.JSON(code, r.Payload)
+	if r.IsReady() {
+		r.c.JSON(code, r.Payload)
+		r.ready = false
+	}
 }
 
 // Reply data only (without meta) in payload to the client.
 func (r *Reply) ReplyData(code int) {
-	r.c.JSON(code, r.Payload.Data)
+	if r.IsReady() {
+		r.c.JSON(code, r.Payload.Data)
+		r.ready = false
+	}
 }
 
 // Ok sends a 200 OK reply.
@@ -153,8 +173,8 @@ var (
 )
 
 var codeAlias = map[string]int{
-	"NOT_FOUND":    http.StatusNotFound,
-	"SERVER_ERROR": http.StatusInternalServerError,
-	"CLIENT_ERROR": http.StatusBadRequest,
-	"BAD_GATEWAY":  http.StatusBadGateway,
+	CodeNotFound:    http.StatusNotFound,
+	CodeServerError: http.StatusInternalServerError,
+	CodeBadRequest:  http.StatusBadRequest,
+	CodeBadGateWay:  http.StatusBadGateway,
 }
