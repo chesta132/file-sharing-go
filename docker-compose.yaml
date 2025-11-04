@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: "on-failure"
+    container_name: file-sharing
+    working_dir: /app
+    command: go run ./cmd
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      - CGO_ENABLED=1
+    ports:
+      - "3000:3000"
