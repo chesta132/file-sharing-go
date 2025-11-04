@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"file-sharing/ent"
+	"file-sharing/internal/lib/filelib"
 	"file-sharing/internal/lib/reply"
 	"file-sharing/internal/services"
 	"strconv"
@@ -59,4 +60,27 @@ func (h *File) GetOne(c *gin.Context) {
 	}
 
 	rp.Success(file).Ok()
+}
+
+func (h *File) Download(c *gin.Context) {
+	rp := reply.New(c)
+	s := h.s.AttachGin(c)
+	token := c.Param("token")
+	pw := c.Query("password")
+
+	file, err := s.GetOne(token, true)
+	if err != nil {
+		return
+	}
+
+	if a, c := filelib.IsDownloadable(file, pw); !a {
+		message := "Max download reached"
+		if c == "PASSWORD" {
+			message = "Wrong password"
+		}
+		rp.Error(reply.CodeBadRequest, message).Fail()
+		return
+	}
+
+	s.SendToDownload(file)
 }

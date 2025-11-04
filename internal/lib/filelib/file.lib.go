@@ -40,12 +40,12 @@ func GetPathname(size int64, id, filename string) string {
 	return filepath.Join(GetPathBySize(size), id+GetExtension(filename))
 }
 
-func IsDownloadable(file *ent.File, password string) bool {
+func IsDownloadable(file *ent.File, password string) (downloadable bool, cause string) {
 	if file.MaxDownloads != nil && file.DownloadCount > *file.MaxDownloads {
-		return false
+		return false, "MAX_DOWNLOADS"
 	}
 	if file.Password != nil && !crypto.ComparePassword(*file.Password, password) {
-		return false
+		return false, "PASSWORD"
 	}
-	return true
+	return true, ""
 }

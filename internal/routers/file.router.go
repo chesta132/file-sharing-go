@@ -15,4 +15,5 @@ func (r *Router) RegisterFile(router *gin.Engine) {
 
 	router.GET("/files", fh.GetMany)
 	router.GET("/files/:token", fh.GetOne)
+	router.GET("/files/:token/download", fh.Download)
 }
