@@ -9,7 +9,9 @@ import (
 	"file-sharing/internal/lib/filelib"
 	"file-sharing/internal/lib/reply"
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,20 +42,38 @@ func (s *AttachedGinFile) GetMany(offset int) ([]*ent.File, error) {
 	return s.dc.File.Query().Where().Offset(offset).Limit(config.PAGINATION_LIMIT).All(s.ctx)
 }
 
-func (s *AttachedGinFile) GetOne(token string) (*ent.File, error) {
-	return s.dc.File.Query().Where(file.Token(token)).First(s.ctx)
+func (s *AttachedGinFile) GetOne(token string, allowRes ...bool) (*ent.File, error) {
+	f, err := s.dc.File.Query().Where(file.Token(token)).First(s.ctx)
+
+	if len(allowRes) > 0 && allowRes[0] && err != nil {
+		rp := reply.New(s.c)
+
+		if ent.IsNotFound(err) {
+			rp.Error(reply.CodeNotFound, "File not found. This could be happen because file sharing was expired").Fail()
+			return nil, err
+		}
+		rp.Error(reply.CodeBadGateWay, err.Error()).Fail()
+		return nil, err
+	}
+
+	return f, err
+}
+
+func (s *AttachedGinFile) SendToDownload(file *ent.File) error {
+	err := s.dc.File.UpdateOneID(file.ID).AddDownloadCount(1).Exec(s.ctx)
+	s.c.FileAttachment(
+		filelib.GetPathname(file.FileSize, file.ID, file.FileName),
+		file.FileName,
+	)
+	file.DownloadCount++
+	return err
 }
 
 func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 	rp := reply.New(s.c)
 
-	// Parse multipart form with max size limit
-	if err := s.c.Request.ParseMultipartForm(config.MAX_UPLOAD * config.MB); err != nil {
-		if allowReply {
-			rp.Error(reply.CodeBadRequest, fmt.Sprintf("Max uploaded file is %vMB", config.MAX_UPLOAD), err.Error()).Fail()
-		}
-		return nil, err
-	}
+	// Enforce max upload size from config
+	s.c.Request.Body = http.MaxBytesReader(s.c.Writer, s.c.Request.Body, config.MAX_UPLOAD*config.MB)
 
 	// Get file and optional parameters from form
 	u, err := s.c.FormFile("file")
@@ -61,10 +81,34 @@ func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 	maxDownloads := s.c.Request.FormValue("max-downloads")
 
 	if err != nil {
+		// Validate max size
+		if strings.Contains(err.Error(), "http: request body too large") {
+			if allowReply {
+				rp.Error(
+					reply.CodeBadRequest,
+					fmt.Sprintf("Max uploaded file is %vMB", config.MAX_UPLOAD),
+					fmt.Sprintf("File size: %.2fMB", float64(u.Size)/float64(config.MB)),
+				).Fail()
+			}
+			return nil, err
+		}
+
 		if allowReply {
 			rp.Error(reply.CodeBadRequest, "Please add 'file' field in form and make sure it's file formatted", err.Error()).Fail()
 		}
 		return nil, err
+	}
+
+	// Validate max size
+	if u.Size > config.MAX_UPLOAD*config.MB {
+		if allowReply {
+			rp.Error(
+				reply.CodeBadRequest,
+				fmt.Sprintf("Max uploaded file is %vMB", config.MAX_UPLOAD),
+				fmt.Sprintf("File size: %.2fMB", float64(u.Size)/float64(config.MB)),
+			).Fail()
+		}
+		return nil, fmt.Errorf("file too large")
 	}
 
 	// Ensure upload directories exist
