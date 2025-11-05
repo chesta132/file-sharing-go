@@ -3,13 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    restart: "on-failure"
     container_name: file-sharing
     working_dir: /app
     command: go run ./cmd
     volumes:
       - .:/app
       - ./data:/app/data
+      - ~/.cache/go-build:/root/.cache/go-build
+      - ~/go/pkg/mod:/go/pkg/mod
     environment:
       - CGO_ENABLED=1
     ports:
