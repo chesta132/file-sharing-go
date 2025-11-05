@@ -72,8 +72,21 @@ func (s *AttachedGinFile) SendToDownload(file *ent.File) error {
 func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 	rp := reply.New(s.c)
 
-	// Enforce max upload size from config
-	s.c.Request.Body = http.MaxBytesReader(s.c.Writer, s.c.Request.Body, config.MAX_UPLOAD*config.MB)
+	// Validate max size
+	contentLength := s.c.Request.ContentLength
+	if contentLength > config.MAX_UPLOAD*config.MB {
+		if allowReply {
+			rp.Error(
+				reply.CodeBadRequest,
+				fmt.Sprintf("Max uploaded file is %vMB", config.MAX_UPLOAD),
+				fmt.Sprintf("File size: %.2fMB", float64(contentLength)/float64(config.MB)),
+			).Fail()
+		}
+		return nil, fmt.Errorf("file too large")
+	}
+
+	// Hard validate max size
+	s.c.Request.Body = http.MaxBytesReader(s.c.Writer, s.c.Request.Body, (config.MAX_UPLOAD*config.MB)+(10*config.MB))
 
 	// Get file and optional parameters from form
 	u, err := s.c.FormFile("file")
@@ -81,13 +94,13 @@ func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 	maxDownloads := s.c.Request.FormValue("max-downloads")
 
 	if err != nil {
+		s.c.Request.Body.Close()
 		// Validate max size
 		if strings.Contains(err.Error(), "http: request body too large") {
 			if allowReply {
 				rp.Error(
 					reply.CodeBadRequest,
-					fmt.Sprintf("Max uploaded file is %vMB", config.MAX_UPLOAD),
-					fmt.Sprintf("File size: %.2fMB", float64(u.Size)/float64(config.MB)),
+					fmt.Sprintf("Max file to upload is %vMB", config.MAX_UPLOAD),
 				).Fail()
 			}
 			return nil, err
@@ -98,6 +111,7 @@ func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 		}
 		return nil, err
 	}
+	defer s.c.Request.Body.Close()
 
 	// Validate max size
 	if u.Size > config.MAX_UPLOAD*config.MB {
