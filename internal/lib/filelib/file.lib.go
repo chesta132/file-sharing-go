@@ -35,7 +35,10 @@ func CreateDir() error {
 
 func GetExtension(filename string) string {
 	i := strings.LastIndex(filename, ".")
-	return filename[i:]
+	if i == -1 {
+		return ""
+	}
+	return filename[i+1:]
 }
 
 func GetPathname(file *ent.File) string {

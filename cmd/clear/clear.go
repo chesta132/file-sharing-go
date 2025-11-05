@@ -26,7 +26,7 @@ const dateFormat = "2006-01-02_15-04-05"
 type fileInfo struct {
 	Name         string `json:"fileName"`
 	Types        string `json:"type"`
-	Extension    string `json:"extension"`
+	Extension    string `json:"extension,omitempty"`
 	LastModified string `json:"lastModified,omitempty"`
 	Size         string `json:"size,omitempty"`
 }
@@ -58,7 +58,7 @@ func createFileInfo(entries []os.DirEntry) []*fileInfo {
 		result = append(result, &fileInfo{
 			Name:         f.Name(),
 			Types:        getType(f),
-			Extension:    filelib.GetExtension(f.Name())[1:],
+			Extension:    filelib.GetExtension(f.Name()),
 			LastModified: lastModif,
 			Size:         size,
 		})
