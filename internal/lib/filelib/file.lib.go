@@ -1,9 +1,11 @@
 package filelib
 
 import (
+	"errors"
 	"file-sharing/config"
 	"file-sharing/ent"
 	"file-sharing/internal/lib/crypto"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -36,8 +38,20 @@ func GetExtension(filename string) string {
 	return filename[i:]
 }
 
-func GetPathname(size int64, id, filename string) string {
-	return filepath.Join(GetPathBySize(size), id+GetExtension(filename))
+func GetPathname(file *ent.File) string {
+	return filepath.Join(GetPathBySize(file.FileSize), fmt.Sprintf("%v##%v", file.Token, file.FileName))
+}
+
+func ExtractFileName(path string) (string, error) {
+	i := strings.LastIndex(path, "\\")
+	if strings.LastIndex(path[i:], "/") != i {
+		i = strings.LastIndex(path[i:], "/")
+	}
+	s := path[i:]
+	if !strings.Contains(s, ".") {
+		return "", errors.New("filename: Invalid path, file name does not have extension")
+	}
+	return s, nil
 }
 
 func IsDownloadable(file *ent.File, password string) (downloadable bool, cause string) {

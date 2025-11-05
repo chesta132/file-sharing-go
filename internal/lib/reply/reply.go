@@ -122,7 +122,7 @@ func (r *Reply) Error(code, message string, details ...string) *Reply {
 // Reply writes the full JSON reply to the client.
 func (r *Reply) Reply(code int) {
 	if r.IsReady() {
-		r.c.JSON(code, r.Payload)
+		r.c.IndentedJSON(code, r.Payload)
 		r.ready = false
 	}
 }
@@ -130,7 +130,7 @@ func (r *Reply) Reply(code int) {
 // Reply data only (without meta) in payload to the client.
 func (r *Reply) ReplyData(code int) {
 	if r.IsReady() {
-		r.c.JSON(code, r.Payload.Data)
+		r.c.IndentedJSON(code, r.Payload.Data)
 		r.ready = false
 	}
 }

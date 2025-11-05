@@ -15,3 +15,17 @@ services:
       - CGO_ENABLED=1
     ports:
       - "3000:3000"
+
+  clear:
+    image: golang:latest
+    working_dir: /app
+    command: go run ./cmd/clear
+    volumes:
+      - .:/app
+      - ./data:/app/data
+      - ~/.cache/go-build:/root/.cache/go-build
+      - ~/go/pkg/mod:/go/pkg/mod
+    environment:
+      - CGO_ENABLED=1
+    profiles:
+      - tools

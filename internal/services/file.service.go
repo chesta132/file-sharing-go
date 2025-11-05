@@ -62,7 +62,7 @@ func (s *AttachedGinFile) GetOne(token string, allowRes ...bool) (*ent.File, err
 func (s *AttachedGinFile) SendToDownload(file *ent.File) error {
 	err := s.dc.File.UpdateOneID(file.ID).AddDownloadCount(1).Exec(s.ctx)
 	s.c.FileAttachment(
-		filelib.GetPathname(file.FileSize, file.ID, file.FileName),
+		filelib.GetPathname(file),
 		file.FileName,
 	)
 	file.DownloadCount++
@@ -162,7 +162,7 @@ func (s *AttachedGinFile) ProcessUpload(allowReply bool) (*ent.File, error) {
 	}
 
 	// Generate file path using ID from database
-	pathname := filelib.GetPathname(file.FileSize, file.ID, file.FileName)
+	pathname := filelib.GetPathname(file)
 
 	// Save physical file to disk
 	if err := s.c.SaveUploadedFile(u, pathname); err != nil {
