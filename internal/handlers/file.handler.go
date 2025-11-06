@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"file-sharing/config"
 	"file-sharing/ent"
 	"file-sharing/internal/lib/filelib"
 	"file-sharing/internal/lib/reply"
@@ -49,13 +50,8 @@ func (h *File) GetOne(c *gin.Context) {
 	s := h.s.AttachGin(c)
 	token := c.Param("token")
 
-	file, err := s.GetOne(token)
-	if ent.IsNotFound(err) {
-		rp.Error(reply.CodeNotFound, "File not found. This could be happen because file sharing was expired").Fail()
-		return
-	}
+	file, err := s.GetOne(token, true)
 	if err != nil {
-		rp.Error(reply.CodeBadGateWay, err.Error()).Fail()
 		return
 	}
 
@@ -83,4 +79,38 @@ func (h *File) Download(c *gin.Context) {
 	}
 
 	s.SendToDownload(file)
+}
+
+func (h *File) DeleteOne(c *gin.Context) {
+	rp := reply.New(c)
+	s := h.s.AttachGin(c)
+	token := c.Param("token")
+	pw := c.Query("password")
+
+	file, err := s.GetOne(token, true)
+	if err != nil {
+		return
+	}
+	if !filelib.IsPasswordCorrect(file, pw) {
+		rp.Error(reply.CodeBadRequest, "Wrong password").Fail()
+		return
+	}
+
+	err = filelib.CreateDeleteLog([]*ent.File{file}, config.REQUEST_DELETE_LOG_PATH)
+	if err != nil {
+		rp.Error(reply.CodeServerError, err.Error()).Fail()
+		return
+	}
+
+	err = s.DeleteOneFile(file, true)
+	if err != nil {
+		return
+	}
+
+	_, err = s.DeleteOne(token, true)
+	if err != nil {
+		return
+	}
+
+	rp.Success(file).SetInfo(file.FileName + " successfully deleted").Ok()
 }

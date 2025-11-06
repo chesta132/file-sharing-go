@@ -57,12 +57,17 @@ func ExtractFileName(path string) (string, error) {
 	return s, nil
 }
 
+func IsPasswordCorrect(file *ent.File, password string) bool {
+	return file.Password == nil || crypto.ComparePassword(*file.Password, password)
+}
+
 func IsDownloadable(file *ent.File, password string) (downloadable bool, cause string) {
 	if file.MaxDownloads != nil && file.DownloadCount > *file.MaxDownloads {
 		return false, "MAX_DOWNLOADS"
 	}
-	if file.Password != nil && !crypto.ComparePassword(*file.Password, password) {
+	if !IsPasswordCorrect(file, password) {
 		return false, "PASSWORD"
 	}
 	return true, ""
 }
+

@@ -10,6 +10,7 @@ import (
 	"file-sharing/internal/lib/reply"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -36,27 +37,54 @@ func (s *File) AttachGin(c *gin.Context) *AttachedGinFile {
 	return &AttachedGinFile{s.dc, c, c.Request.Context()}
 }
 
+// PRIVATE UTIL
+
+func (s *AttachedGinFile) replyDbError(err error) {
+	rp := reply.New(s.c)
+
+	if ent.IsNotFound(err) {
+		rp.Error(reply.CodeNotFound, "File not found. This could be happen because file sharing was expired").Fail()
+		return
+	}
+	rp.Error(reply.CodeBadGateWay, err.Error()).Fail()
+}
+
 // SERVICES
 
 func (s *AttachedGinFile) GetMany(offset int) ([]*ent.File, error) {
 	return s.dc.File.Query().Where().Offset(offset).Limit(config.PAGINATION_LIMIT).All(s.ctx)
 }
 
-func (s *AttachedGinFile) GetOne(token string, allowRes ...bool) (*ent.File, error) {
+func (s *AttachedGinFile) GetOne(token string, allowReply bool) (*ent.File, error) {
 	f, err := s.dc.File.Query().Where(file.Token(token)).First(s.ctx)
 
-	if len(allowRes) > 0 && allowRes[0] && err != nil {
-		rp := reply.New(s.c)
-
-		if ent.IsNotFound(err) {
-			rp.Error(reply.CodeNotFound, "File not found. This could be happen because file sharing was expired").Fail()
-			return nil, err
-		}
-		rp.Error(reply.CodeBadGateWay, err.Error()).Fail()
+	if allowReply && err != nil {
+		s.replyDbError(err)
 		return nil, err
 	}
 
 	return f, err
+}
+
+func (s *AttachedGinFile) DeleteOne(token string, allowReply bool) (int, error) {
+	f, err := s.dc.File.Delete().Where(file.Token(token)).Exec(s.ctx)
+
+	if allowReply && err != nil {
+		s.replyDbError(err)
+		return 0, err
+	}
+
+	return f, err
+}
+
+func (s *AttachedGinFile) DeleteOneFile(file *ent.File, allowReply bool) error {
+	path := filelib.GetPathname(file)
+	err := os.Remove(path)
+	if err != nil {
+		reply.New(s.c).Error(reply.CodeServerError, "Error cannot remove file").Fail()
+		return err
+	}
+	return nil
 }
 
 func (s *AttachedGinFile) SendToDownload(file *ent.File) error {
